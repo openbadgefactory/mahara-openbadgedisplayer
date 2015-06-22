@@ -20,6 +20,7 @@ Mahara 1.8 or newer.
 
 3. Add Backpack sources to your htdocs/config.php file:
 
+
     // Pull badges from Mozilla Backpack and openbadgepassport.com
     $cfg->openbadgedisplayer_source = array(
         'backpack' => 'https://backpack.openbadges.org/',
