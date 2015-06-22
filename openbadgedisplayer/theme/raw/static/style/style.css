@@ -1,0 +1,6 @@
+#instconf_badgegroup_container .radio.separator {
+    display: inline-block;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 2px dotted silver;
+}
