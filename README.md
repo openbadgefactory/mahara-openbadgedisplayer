@@ -21,11 +21,13 @@ Mahara 1.8 or newer.
 3. Add Backpack sources to your htdocs/config.php file:
 
 
-    // Pull badges from Mozilla Backpack and openbadgepassport.com
-    $cfg->openbadgedisplayer_source = array(
-        'backpack' => 'https://backpack.openbadges.org/',
-        'passport' => 'https://openbadgepassport.com/'
-    );
+```php
+// Pull badges from Mozilla Backpack and openbadgepassport.com
+$cfg->openbadgedisplayer_source = array(
+    'backpack' => 'https://backpack.openbadges.org/',
+    'passport' => 'https://openbadgepassport.com/'
+);
+```
 
 
 ## Usage
@@ -39,4 +41,4 @@ In order to display badges in a portfolio or profile page, two things are needed
 After that, badge collections should become selectable in the block configuration popup.
 
 
-Copyright 2013-2014 Discendum Oy http://www.discendum.com
+Copyright 2013-2015 Discendum Oy http://www.discendum.com
