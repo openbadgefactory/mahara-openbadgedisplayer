@@ -31,6 +31,8 @@ defined('INTERNAL') || die();
 
 class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
 
+    private static $source = null;
+
     public static function single_only() {
         return false;
     }
@@ -52,15 +54,21 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
     }
 
     public static function get_backpack_source() {
-        $source = get_config('openbadgedisplayer_source');
-        if (empty($source)) {
-            // default values
-            $source = array(
-                'backpack' => 'https://backpack.openbadges.org/',
-                'passport' => null
-            );
+        if (is_null(self::$source)) {
+            $source = get_config('openbadgedisplayer_source');
+
+            if (empty($source)) {
+                // default values
+                $source = array(
+                    'backpack' => 'https://backpack.openbadges.org/',
+                    'passport' => null
+                );
+            }
+
+            self::$source = $source;
         }
-        return $source;
+
+        return self::$source;
     }
 
     public static function render_instance(BlockInstance $instance, $editing=false) {
@@ -69,35 +77,106 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
             return;
         }
 
-        $source = self::get_backpack_source();
-
-        $host = $source['backpack'];
-        $badgegroup = $configdata['badgegroup'];
-        if (strpos($badgegroup, 'http') === 0) {
-            list($proto, $url, $bid, $group) = explode(':', $badgegroup);
-            $host = $proto . ':' . $url;
-            $badgegroup = $bid . ':' . $group;
-        }
+        $host = 'backpack';
+        $badgegroups = $configdata['badgegroup'];
+        $html = '';
 
         if ($editing) {
-            list($bid, $group) = explode(':', $badgegroup);
-            $res = mahara_http_request(array(CURLOPT_URL => $host . "displayer/{$bid}/groups.json"));
-            $res = json_decode($res->data);
-            if (!empty($res->groups)) {
-                foreach ($res->groups AS $g) {
-                    if ($badgegroup === $bid . ':' . $g->groupId) {
-                        return hsc($g->name) . ' (' . get_string('nbadges', 'blocktype.openbadgedisplayer', $g->badges) . ')';
+            $items = array();
+
+            foreach ($badgegroups as $badgegroup) {
+                list($host, $bid, $group) = explode(':', $badgegroup);
+
+                $backpack_url = self::get_backpack_url($host);
+                $res = mahara_http_request(array(CURLOPT_URL => $backpack_url . "displayer/{$bid}/groups.json"));
+                $json = json_decode($res->data);
+
+                if (!empty($json->groups)) {
+                    foreach ($json->groups as $g) {
+                        if ((int) $group === (int) $g->groupId) {
+                            $items[] = hsc($g->name) . ' (' . get_string('nbadges', 'blocktype.openbadgedisplayer', $g->badges) . ')';
+                        }
                     }
                 }
             }
-            return;
+
+            if (count($items) > 0) {
+                $html .= '<ul>' . implode('', array_map(function ($item) { return "<li>{$item}</li>"; }, $items)) . '</ul>';
+            }
+
+            return $html;
+        }
+        else {
+            $smarty = smarty_core();
+            $smarty->assign('id', $instance->get('id'));
+            $smarty->assign('badgehtml', self::get_badge_html($badgegroups));
+            $html = $smarty->fetch('blocktype:openbadgedisplayer:openbadgedisplayer.tpl');
         }
 
-        $smarty = smarty_core();
-        $smarty->assign('baseurl', $host);
-        $smarty->assign('id', $instance->get('id'));
-        $smarty->assign('badgegroup', $badgegroup);
-        return $smarty->fetch('blocktype:openbadgedisplayer:openbadgedisplayer.tpl');
+        return $html;
+    }
+
+    private static function get_badge_html($groups) {
+        $html = '';
+        $existing = array();
+
+        foreach ($groups as $group) {
+            $parts = explode(':', $group);
+
+            if (count($parts) < 3) {
+                continue;
+            }
+
+            $backpack_url = self::get_backpack_url($parts[0]);
+            $url = $backpack_url . 'displayer/' . $parts[1] . '/group/' . $parts[2] . '.json';
+            $res = mahara_http_request(array(CURLOPT_URL => $url));
+
+            if ($res->info['http_code'] != 200) {
+                continue;
+            }
+
+            $json = json_decode($res->data);
+
+            if (isset($json->badges) && is_array($json->badges)) {
+
+                foreach ($json->badges as $badge) {
+                    $b = $badge->assertion->badge;
+
+                    // TODO: Simple check for unique badges, improve me!
+                    if (array_key_exists($b->name, $existing) && strcmp($existing[$b->name], $b->description) === 0) {
+                        continue;
+                    }
+
+                    if (self::assertion_has_expired($badge->assertion)) {
+                        continue;
+                    }
+
+                    $html .= '<img '
+                            . 'src="' . $b->image . '" '
+                            . 'title="' . $b->name . '" '
+                            . 'data-assertion="' . htmlentities(json_encode($badge->assertion)) . '" />';
+
+                    $existing[$b->name] = $b->description;
+                }
+            }
+
+        }
+
+        return $html;
+    }
+
+    private static function assertion_has_expired($assertion) {
+        if (!isset($assertion->expires)) {
+            return false;
+        }
+
+        // Unix timestamp
+        if (preg_match('/^[0-9]+$/', $assertion->expires)) {
+            return ($assertion->expires * 1000) < time();
+        }
+
+        // Formatted date
+        return strtotime($assertion->expires) < time();
     }
 
     public static function has_instance_config() {
@@ -113,12 +192,15 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
 
         $addresses = get_column('artefact_internal_profile_email', 'email', 'owner', $USER->id, 'verified', 1);
 
-        $current_value = null;
+        $current_values = array();
         if (isset($configdata['badgegroup'])) {
-            $current_value = $configdata['badgegroup'];
-            if (substr_count($current_value, ':') == 1) {
-                //legacy value, prepend host
-                $current_value = $source['backpack'] . ':' . $current_value;
+            $current_values = $configdata['badgegroup'];
+
+            foreach ($current_values as &$current_value) {
+                if (substr_count($current_value, ':') == 1) {
+                    //legacy value, prepend host
+                    $current_value = 'backpack:' . $current_value;
+                }
             }
         }
 
@@ -128,20 +210,21 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
                 'value' => '<p>'. get_string('confighelp', 'blocktype.openbadgedisplayer', $source['backpack']) .'</p>'
             ),
             'badgegroup' => array(
-                'type' => 'radio',
-                'options' => array(),
-                'separator' => '<br>'
-            ),
-            'inlinejsformatter' => array(
-                'type' => 'html',
-                'value' => self::badgegroup_format()
+                'type' => 'checkboxes',
+                'labelwidth' => false,
+                'elements' => array()
             )
         );
 
-        $fields['badgegroup']['options'] += self::get_form_fields($source['backpack'], $addresses);
-        $fields['badgegroup']['options'] += self::get_form_fields($source['passport'], $addresses);
+        foreach (array_keys($source) as $source) {
+            $fields['badgegroup']['elements'] += self::get_form_fields($source, $addresses);
+        }
 
-        if (empty($fields['badgegroup']['options'])) {
+        foreach ($fields['badgegroup']['elements'] as &$element) {
+            $element['defaultvalue'] = in_array($element['value'], $current_values);
+        }
+
+        if (empty($fields['badgegroup']['elements'])) {
             return array(
                 'colorcode' => array('type' => 'hidden', 'value' => ''),
                 'title' => array('type' => 'hidden', 'value' => ''),
@@ -152,26 +235,16 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
             );
         }
 
-        if ($current_value && isset($fields['badgegroup']['options'][$current_value])) {
-            $default = $current_value;
-        }
-        else {
-            list($default) = array_keys($fields['badgegroup']['options']);
-        }
-
-        $fields['badgegroup']['defaultvalue'] = $default;
-
         return $fields;
     }
 
-    private static function badgegroup_format() {
-        return <<<EOF
-            <script type="text/javascript">
+    public static function get_instance_config_javascript(\BlockInstance $instance) {
+        return <<<JS
             (function ($) {
               $(function () {
 
                 window.setTimeout( function () {
-                    $('#instconf_badgegroup_container div.radio').each(function () {
+                    $('#instconf_badgegroup_container div.checkboxes-option').each(function () {
                         var that = $(this);
                         if (that.find('input').val().match(/.+:0$/)) {
                             that.addClass('separator');
@@ -180,10 +253,8 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
                 }, 100);
               });
             })(jQuery)
-            </script>
-EOF;
+JS;
     }
-
 
     private static function get_form_fields($host, $addresses) {
         if ( ! $host) {
@@ -207,9 +278,10 @@ EOF;
 
 
     private static function get_backpack_id($host, $email) {
+        $backpack_url = self::get_backpack_url($host);
         $res = mahara_http_request(
             array(
-                CURLOPT_URL        => $host . 'displayer/convert/email',
+                CURLOPT_URL        => $backpack_url . 'displayer/convert/email',
                 CURLOPT_POST       => 1,
                 CURLOPT_POSTFIELDS => 'email=' . urlencode($email)
             )
@@ -224,8 +296,10 @@ EOF;
 
     private static function get_group_opt($host, $uid) {
         $opt = array();
-        $res = mahara_http_request(array(CURLOPT_URL => $host . "displayer/{$uid}/groups.json"));
+        $backpack_url = self::get_backpack_url($host);
+        $res = mahara_http_request(array(CURLOPT_URL => $backpack_url . "displayer/{$uid}/groups.json"));
         $res = json_decode($res->data);
+
         if (!empty($res->groups)) {
             foreach ($res->groups AS $g) {
                 if ($g->name == 'Public badges' && $g->groupId == 0) {
@@ -236,12 +310,27 @@ EOF;
                 }
 
                 $name .= ' (' . get_string('nbadges', 'blocktype.openbadgedisplayer', $g->badges) . ')';
-                $opt[$host . ':' . $uid . ':' . $g->groupId] = $name;
+                $cb_id = $host . ':' . $uid . ':' . $g->groupId;
+                $cb_name = self::_sanitize_name($cb_id);
+                $opt[$cb_name] = array(
+                    'type' => 'checkbox',
+                    'title' => $name,
+                    'value' => $cb_id
+                );
             }
         }
         return $opt;
     }
 
+    public static function get_backpack_url($host) {
+        $sources = self::get_backpack_source();
+
+        return isset($sources[$host]) ? $sources[$host] : false;
+    }
+
+    private static function _sanitize_name($name) {
+        return preg_replace('/[^a-zA-Z0-9_]/', '_', $name);
+    }
 
     public static function instance_config_save($values) {
         unset($values['message']);
