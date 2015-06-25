@@ -186,7 +186,7 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
     public static function instance_config_form($instance) {
         global $USER;
 
-        $source = self::get_backpack_source();
+        $sources = self::get_backpack_source();
 
         $configdata = $instance->get('configdata');
 
@@ -207,7 +207,7 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
         $fields = array(
             'message' => array(
                 'type' => 'html',
-                'value' => '<p>'. get_string('confighelp', 'blocktype.openbadgedisplayer', $source['backpack']) .'</p>'
+                'value' => '<p>'. get_string('confighelp', 'blocktype.openbadgedisplayer', $sources['backpack']) .'</p>'
             ),
             'badgegroup' => array(
                 'type' => 'checkboxes',
@@ -216,7 +216,7 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
             )
         );
 
-        foreach (array_keys($source) as $source) {
+        foreach (array_keys($sources) as $source) {
             $fields['badgegroup']['elements'] += self::get_form_fields($source, $addresses);
         }
 
@@ -230,7 +230,7 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
                 'title' => array('type' => 'hidden', 'value' => ''),
                 'message' => array(
                     'type' => 'html',
-                    'value' => '<p>'. get_string('nogroups', 'blocktype.openbadgedisplayer', $source['backpack']) .'</p>'
+                    'value' => '<p>'. get_string('nogroups', 'blocktype.openbadgedisplayer', $sources['backpack']) .'</p>'
                 )
             );
         }
