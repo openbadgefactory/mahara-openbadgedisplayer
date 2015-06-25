@@ -239,6 +239,10 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
     }
 
     public static function get_instance_config_javascript(\BlockInstance $instance) {
+        // pieform_element_checkboxes_get_headdata() includes the javascript
+        // needed by the "Select all/none" -links. That function isn't called
+        // when the config form is rendered, so let's just copy the code here
+        // and add it to window scope.
         return <<<JS
             (function ($) {
               $(function () {
@@ -252,7 +256,21 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
                     });
                 }, 100);
               });
-            })(jQuery)
+            })(jQuery);
+
+            if (typeof pieform_element_checkboxes_update === 'undefined') {
+                window.pieform_element_checkboxes_update = function (p, v) {
+                    forEach(getElementsByTagAndClassName('input', 'checkboxes', p), function(e) {
+                        if (!e.disabled) {
+                            e.checked = v;
+                        }
+                    });
+                    if (typeof formchangemanager !== 'undefined') {
+                        var form = jQuery('div#' + p).closest('form')[0];
+                        formchangemanager.setFormState(form, FORM_CHANGED);
+                    }
+                };
+            }
 JS;
     }
 
