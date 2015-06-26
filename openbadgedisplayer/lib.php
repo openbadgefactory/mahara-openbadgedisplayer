@@ -81,6 +81,11 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
         $badgegroups = $configdata['badgegroup'];
         $html = '';
 
+        // Support the legacy format (a string, not an array).
+        if (is_string($badgegroups)) {
+            $badgegroups = array($badgegroups);
+        }
+
         if ($editing) {
             $items = array();
 
@@ -196,9 +201,14 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
         if (isset($configdata['badgegroup'])) {
             $current_values = $configdata['badgegroup'];
 
+            // Support the legacy format (a string, not an array).
+            if (is_string($current_values)) {
+                $current_values = array($current_values);
+            }
+
             foreach ($current_values as &$current_value) {
                 if (substr_count($current_value, ':') == 1) {
-                    //legacy value, prepend host
+                    // Legacy value, prepend host
                     $current_value = 'backpack:' . $current_value;
                 }
             }
