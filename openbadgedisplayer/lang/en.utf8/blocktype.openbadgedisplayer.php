@@ -55,9 +55,12 @@ $string['nbadges'] = array('1 badge', '%s badges');
 
 $string['nobackpack'] = 'No Backpack found.<br> Please add your <a href="%s" target="_blank">Backpack</a> email address to your <a href="%s">profile</a>.';
 
-$string['nogroups'] = 'No public badge collections found.<br> Please visit your <a href="%s" target="_blank">Backpack</a> and add your badges to some public collections.';
+$string['nogroups'] = 'No public badge collections/badges found.<br> Please visit your <a href="%s" target="_blank">Backpack</a> and add your badges to some public collections.';
 
-$string['confighelp'] = 'Select the badge collection to show in this block.<br> Visit your <a href="%s" target="_blank">Backpack</a> to manage collections and badges.';
+$string['confighelp'] = 'Select the badge collections to show in this block.<br/>Visit the following services to manage your collections and badges:<br/>%s';
 
 $string['obppublicbadges'] = 'All public badges in Open Badge Passport';
+$string['title_backpack'] = 'Mozilla Backpack';
+
+$string['title_passport'] = 'Open Badge Passport';
 

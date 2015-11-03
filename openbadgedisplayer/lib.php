@@ -77,6 +77,15 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
             return;
         }
 
+        // HACK: In Mahara 1.8 blocktypes cannot declare their own styles. Let's
+        // make a small hack to include our own styles to page.
+        $blocks_can_have_css = method_exists('View', 'get_all_blocktype_css');
+
+        if (!$blocks_can_have_css) {
+            global $CFG;
+            $CFG->additionalhtmlhead .= '<link rel="stylesheet" type="text/css" href="' . $CFG->wwwroot . 'blocktype/openbadgedisplayer/theme/raw/static/style/style.css" media="all"></link>';
+        }
+
         $host = 'backpack';
         $badgegroups = $configdata['badgegroup'];
         $html = '';
@@ -227,33 +236,57 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
             }
         }
 
+        $sourcelinks = array();
+
+        foreach ($sources as $source => $url) {
+            if (!empty($url)) {
+                $title = get_string('title_' . $source, 'blocktype.openbadgedisplayer');
+                $sourcelinks[] = '<a href="' . $url . '" target="_blank">' . $title . '</a>';
+            }
+        }
+
         $fields = array(
             'message' => array(
                 'type' => 'html',
-                'value' => '<p>'. get_string('confighelp', 'blocktype.openbadgedisplayer', $sources['backpack']) .'</p>'
+                'class' => '',
+                'value' => '<p class="message">'. get_string('confighelp', 'blocktype.openbadgedisplayer', implode(', ', $sourcelinks)) .'</p>'
             ),
-            'badgegroup' => array(
-                'type' => 'checkboxes',
-                'labelwidth' => false,
+            'badgegroups' => array(
+                'type' => 'container',
+                'class' => '',
                 'elements' => array()
             )
         );
 
+        $groupcount = 0;
+
         foreach (array_keys($sources) as $source) {
-            $fields['badgegroup']['elements'] += self::get_form_fields($source, $addresses);
+            $groups = self::get_form_fields($source, $addresses);
+            $fields['badgegroups']['elements'][$source] = array(
+                'title' => get_string('title_' . $source, 'blocktype.openbadgedisplayer'),
+                'type' => 'checkboxes',
+                'class' => '',
+                'labelwidth' => false,
+                'elements' => $groups
+            );
+
+            // Set checked states for elements.
+            if (is_array($groups)) {
+                $groupcount += count($groups);
+
+                foreach ($fields['badgegroups']['elements'][$source]['elements'] as &$element) {
+                    $element['defaultvalue'] = in_array($element['value'], $current_values);
+                }
+            }
         }
 
-        foreach ($fields['badgegroup']['elements'] as &$element) {
-            $element['defaultvalue'] = in_array($element['value'], $current_values);
-        }
-
-        if (empty($fields['badgegroup']['elements'])) {
+        if ($groupcount === 0) {
             return array(
                 'colorcode' => array('type' => 'hidden', 'value' => ''),
                 'title' => array('type' => 'hidden', 'value' => ''),
                 'message' => array(
                     'type' => 'html',
-                    'value' => '<p>'. get_string('nogroups', 'blocktype.openbadgedisplayer', $sources['backpack']) .'</p>'
+                    'value' => '<p class="message">'. get_string('nogroups', 'blocktype.openbadgedisplayer', $sources['backpack']) .'</p>'
                 )
             );
         }
@@ -267,19 +300,6 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
         // when the config form is rendered, so let's just copy the code here
         // and add it to window scope.
         return <<<JS
-            (function ($) {
-              $(function () {
-                window.setTimeout( function () {
-                    $('#instconf_badgegroup_container div.checkboxes-option').each(function () {
-                        var that = $(this);
-                        if (that.find('input').val().match(/.+:0$/)) {
-                            that.addClass('separator');
-                        }
-                    });
-                }, 100);
-              });
-            })(jQuery);
-
             if (typeof pieform_element_checkboxes_update === 'undefined') {
                 window.pieform_element_checkboxes_update = function (p, v) {
                     forEach(getElementsByTagAndClassName('input', 'checkboxes', p), function(e) {
@@ -377,6 +397,16 @@ JS;
 
     public static function instance_config_save($values) {
         unset($values['message']);
+        // Support old save format.
+        $sources = array_keys(self::get_backpack_source());
+        $values['badgegroup'] = array();
+
+        foreach ($sources as $source) {
+            if (isset($values[$source])) {
+                $values['badgegroup'] = array_merge($values['badgegroup'], $values[$source]);
+                unset($values[$source]);
+            }
+        }
         return $values;
     }
 

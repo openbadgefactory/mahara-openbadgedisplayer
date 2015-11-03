@@ -31,7 +31,7 @@ defined('INTERNAL') || die();
 
 $string['badgedetails'] = 'Merkin tiedot';
 
-$string['confighelp'] = 'Valitse, minkä merkkiryhmän merkit näytetään tässä lohkossa.<br> Kirjaudu <a href="%s" target="_blank">Backpackiin</a> hallitaksesi merkkejä ja merkkiryhmiä.';
+$string['confighelp'] = 'Valitse merkkiryhmät, joiden merkit näytetään tässä lohkossa.<br> Kirjaudu seuraaviin palveluihin hallitaksesi merkkejä ja merkkiryhmiä:<br/>%s';
 
 $string['criteria'] = 'Kriteeri';
 
@@ -59,12 +59,15 @@ $string['nbadges'] = array(
 $string['nobackpack'] = 'Backpackia ei löydy.<br> Lisää <a href="%s" target="_blank">Backpackiin</a> kytketty sähköpostiosoite <a hreft="%s">profiiliisi.</a>';
 
 $string['nogroups'] = 'Julkisia merkkejä ei löydy.<br> Kirjaudu <a href="%s" target="_blank">Backpackiin</a> ja lisää merkkejä julkisiin merkkiryhmiin.';
+$string['obppublicbadges'] = 'Kaikki julkiset merkit Open Badge Passportissa';
 
 $string['organization'] = 'Organisaatio';
 
 $string['title'] = 'Open Badge -merkit';
 
+$string['title_backpack'] = 'Mozilla Backpack';
+
+$string['title_passport'] = 'Open Badge Passport';
+
+
 $string['url'] = 'URL';
-
-$string['obppublicbadges'] = 'Kaikki julkiset merkit Open Badge Passportissa';
-
