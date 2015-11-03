@@ -115,6 +115,21 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
             $smarty = smarty_core();
             $smarty->assign('id', $instance->get('id'));
             $smarty->assign('badgehtml', self::get_badge_html($badgegroups));
+
+            $has_pagemodal = true;
+
+            // HACK: Mahara 15.10 uses a separate template to include the modal
+            // window used in showPreview JS-function. Let's check whether that
+            // template exists and use that information in our template.
+            try {
+                $sm = smarty_core();
+                $sm->fetch('pagemodal.tpl');
+            } catch (Dwoo_Exception $e) {
+                // Pagemodal template does not exist.
+                $has_pagemodal = false;
+            }
+
+            $smarty->assign('has_pagemodal', (int) $has_pagemodal);
             $html = $smarty->fetch('blocktype:openbadgedisplayer:openbadgedisplayer.tpl');
         }
 
@@ -192,12 +207,10 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
         global $USER;
 
         $sources = self::get_backpack_source();
-
         $configdata = $instance->get('configdata');
-
         $addresses = get_column('artefact_internal_profile_email', 'email', 'owner', $USER->id, 'verified', 1);
-
         $current_values = array();
+
         if (isset($configdata['badgegroup'])) {
             $current_values = $configdata['badgegroup'];
 
@@ -256,7 +269,6 @@ class PluginBlocktypeOpenbadgedisplayer extends SystemBlocktype {
         return <<<JS
             (function ($) {
               $(function () {
-
                 window.setTimeout( function () {
                     $('#instconf_badgegroup_container div.checkboxes-option').each(function () {
                         var that = $(this);
@@ -307,16 +319,19 @@ JS;
 
     private static function get_backpack_id($host, $email) {
         $backpack_url = self::get_backpack_url($host);
-        $res = mahara_http_request(
-            array(
-                CURLOPT_URL        => $backpack_url . 'displayer/convert/email',
-                CURLOPT_POST       => 1,
-                CURLOPT_POSTFIELDS => 'email=' . urlencode($email)
-            )
-        );
-        $res = json_decode($res->data);
-        if (isset($res->userId)) {
-            return $res->userId;
+
+        if ($backpack_url !== false) {
+            $res = mahara_http_request(
+                array(
+                    CURLOPT_URL        => $backpack_url . 'displayer/convert/email',
+                    CURLOPT_POST       => 1,
+                    CURLOPT_POSTFIELDS => 'email=' . urlencode($email)
+                )
+            );
+            $res = json_decode($res->data);
+            if (isset($res->userId)) {
+                return $res->userId;
+            }
         }
         return null;
     }

@@ -4,6 +4,7 @@
 
     (function ($) {
         var blockid = {$id};
+        var has_pagemodal = {$has_pagemodal};
 
         {literal}
 
@@ -54,16 +55,25 @@
             $('#openbadges' + blockid).on('click', 'img', function () {
                 showPreview('small', {html: buildBadgeContent($(this).data('assertion'))});
 
-                $('#viewpreviewinner').width('480px');
-                $("#viewpreview").removeClass('hidden');
-                $("#viewpreview").width('500px');
-                $("#viewpreview").show();
+                // We don't have that shiny new pagemodal used in 15.10. Let's
+                // do this the old way.
+                if (!has_pagemodal) {
+                    $('#viewpreviewinner').width('480px');
+                    $("#viewpreview").removeClass('hidden');
+                    $("#viewpreview").width('500px');
+                    $("#viewpreview").show();
 
-                disconnectAll('viewpreviewcontent');
+                    disconnectAll('viewpreviewcontent');
+                }
             });
         });
     })(jQuery);
 </script>
 {/literal}
+
+{* Include the template only if it exists. *}
+{if $has_pagemodal}
+    {include file="pagemodal.tpl"}
+{/if}
 
 {include file="blocktype:openbadgedisplayer:badge.tpl"}
